@@ -7,6 +7,14 @@
 #include "spinlock.h"
 #include "proc.h"
 
+
+uint64
+sys_trace(void)
+{
+    struct proc *p = myproc();
+    argint(0, &p->trace_num);//读取参数赋值给进程结构体的trace_num参数
+    return 0;
+}
 uint64
 sys_exit(void)
 {

@@ -15,6 +15,9 @@
 #include "sleeplock.h"
 #include "file.h"
 #include "fcntl.h"
+#include "sysinfo.h"
+#include "kalloc.h"
+
 
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
@@ -24,7 +27,7 @@ argfd(int n, int *pfd, struct file **pf)
   int fd;
   struct file *f;
 
-  if(argint(n, &fd) < 0)
+  if(argint(n, &fd) < 0) //将寄存器第n个参数的值赋值给fd
     return -1;
   if(fd < 0 || fd >= NOFILE || (f=myproc()->ofile[fd]) == 0)
     return -1;
@@ -110,9 +113,25 @@ sys_fstat(void)
   struct file *f;
   uint64 st; // user pointer to struct stat
 
-  if(argfd(0, 0, &f) < 0 || argaddr(1, &st) < 0)
-    return -1;
+  if(argfd(0, 0, &f) < 0 || argaddr(1, &st) < 0)  //argaddr将寄存器a1的值赋值给地址st   argfd从文件中查找第0号寄存器值并作为fd，
+    return -1;                                                                      //并将其指向的文件file指针赋给f
   return filestat(f, st);
+}
+
+uint64
+sys_sysinfo(void)
+{
+    struct proc *p=myproc();
+    struct sysinfo sysinfost;//表示需要传递的数据结构
+    uint64 addr;  //表示用户空间地址
+    if(argaddr(0, &addr) < 0)
+        return -1;
+    sysinfost.freemem=get_freemem();
+    sysinfost.nproc=num_proc();
+    if(copyout(p->pagetable,addr,(char *)&sysinfost,sizeof(sysinfost))<0)//取这个数据结构的起始地址传递给p->page
+        return -1;
+    return 0;
+
 }
 
 // Create the path new as a link to the same inode as old.
@@ -484,3 +503,4 @@ sys_pipe(void)
   }
   return 0;
 }
+

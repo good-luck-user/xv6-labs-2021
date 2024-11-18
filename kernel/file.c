@@ -12,6 +12,7 @@
 #include "file.h"
 #include "stat.h"
 #include "proc.h"
+#include "sysinfo.h"
 
 struct devsw devsw[NDEV];
 struct {
@@ -84,17 +85,19 @@ fileclose(struct file *f)
 
 // Get metadata about file f.
 // addr is a user virtual address, pointing to a struct stat.
+
+
 int
 filestat(struct file *f, uint64 addr)
 {
   struct proc *p = myproc();
-  struct stat st;
+  struct stat st;   //类似一个文件描述的结构体
   
   if(f->type == FD_INODE || f->type == FD_DEVICE){
     ilock(f->ip);
-    stati(f->ip, &st);
+    stati(f->ip, &st);  //将f的文件信息赋值给st
     iunlock(f->ip);
-    if(copyout(p->pagetable, addr, (char *)&st, sizeof(st)) < 0)
+    if(copyout(p->pagetable, addr, (char *)&st, sizeof(st)) < 0)//将系统调用信息传出给用户？？
       return -1;
     return 0;
   }

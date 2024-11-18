@@ -101,6 +101,23 @@ allocpid() {
 // If found, initialize state required to run in the kernel,
 // and return with p->lock held.
 // If there are no free procs, or a memory allocation fails, return 0.
+
+uint64
+num_proc(){
+    struct proc *p;
+    uint64 num=0;
+    for(p = proc; p < &proc[NPROC]; p++){
+        acquire(&p->lock);
+        if(p->state != UNUSED) {
+            num++;
+        }
+        release(&p->lock);
+    }
+
+    return num;
+}
+
+
 static struct proc*
 allocproc(void)
 {
@@ -288,7 +305,7 @@ fork(void)
     return -1;
   }
   np->sz = p->sz;
-
+  np->trace_num=p->trace_num;//将race_num的值也copy到子进程
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
 
