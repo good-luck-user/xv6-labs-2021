@@ -76,14 +76,36 @@ sys_sleep(void)
 }
 
 
-#ifdef LAB_PGTBL
+
 int
 sys_pgaccess(void)
 {
-  // lab pgtbl: your code here.
+    uint64 va,useradd;//
+    int numpage;//第一个参数virtual address 第二个pages的numbel 第三个一个用户地址空间
+    argaddr(0,&va);
+    argint(1,&numpage);
+    argaddr(2,&useradd);
+    if(numpage>512) return -1;//设置上限
+    //通过访问每个页面的pte找出对应的访问位并确定相应的掩码
+    struct proc* p=myproc();
+    uint64 mask=0;
+    for(int i=0;i<numpage;i++){
+        uint64 *pte;//设置一个64位的pte指针
+        if((pte = walk(p->pagetable,va+i*PGSIZE, 1)) == 0) //通过walk找到对应的虚拟地址第三级的pte页表项
+            return -1;
+        //第i个页表如果被访问过mask的i位赋值为1
+        if(*pte & PTE_A) {
+            mask += 1 << i;
+        }
+        if(*pte & PTE_A){//如果访问过则清0
+            uint64 tem=~PTE_A;
+            *pte=*pte&tem;
+        }
+    }
+    copyout(p->pagetable,useradd,(char *)&mask,sizeof (mask));//配置好后将掩码传入用户区
   return 0;
 }
-#endif
+
 
 uint64
 sys_kill(void)

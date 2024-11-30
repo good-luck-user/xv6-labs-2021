@@ -21,11 +21,11 @@ kvmmake(void)
 {
   pagetable_t kpgtbl;
 
-  kpgtbl = (pagetable_t) kalloc();
-  memset(kpgtbl, 0, PGSIZE);
+  kpgtbl = (pagetable_t) kalloc();//这里的返回一个初始值为5的一个页表指针
+  memset(kpgtbl, 0, PGSIZE);//再将这个页表的初始值设为0
 
   // uart registers
-  kvmmap(kpgtbl, UART0, UART0, PGSIZE, PTE_R | PTE_W);
+  kvmmap(kpgtbl, UART0, UART0, PGSIZE, PTE_R | PTE_W);//将URATOmap到相对应的物理地址，设置PTE？
 
   // virtio mmio disk interface
   kvmmap(kpgtbl, VIRTIO0, VIRTIO0, PGSIZE, PTE_R | PTE_W);
@@ -53,7 +53,7 @@ kvmmake(void)
 void
 kvminit(void)
 {
-  kernel_pagetable = kvmmake();
+  kernel_pagetable = kvmmake();//给satp的pagetable设置页表项
 }
 
 // Switch h/w page table register to the kernel's page table,
@@ -61,7 +61,7 @@ kvminit(void)
 void
 kvminithart()
 {
-  w_satp(MAKE_SATP(kernel_pagetable));
+  w_satp(MAKE_SATP(kernel_pagetable));//将页表load进satp寄存器中
   sfence_vma();
 }
 
@@ -143,14 +143,14 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
   if(size == 0)
     panic("mappages: size");
   
-  a = PGROUNDDOWN(va);
+  a = PGROUNDDOWN(va);//起始映射的虚拟地址（为了对齐页表）
   last = PGROUNDDOWN(va + size - 1);
   for(;;){
-    if((pte = walk(pagetable, a, 1)) == 0)
+    if((pte = walk(pagetable, a, 1)) == 0) //通过walk找到对应的pte页表项
       return -1;
     if(*pte & PTE_V)
       panic("mappages: remap");
-    *pte = PA2PTE(pa) | perm | PTE_V;
+    *pte = PA2PTE(pa) | perm | PTE_V;//将物理地址和虚拟地址的映射存到pte中
     if(a == last)
       break;
     a += PGSIZE;
@@ -432,3 +432,28 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
     return -1;
   }
 }
+
+void
+freeprint(pagetable_t pagetable,int step)
+{
+    // there are 2^9 = 512 PTEs in a page table.
+    for(int i = 0; i < 512; i++){
+        pte_t pte = pagetable[i];//找到该页表地址下所有的pte
+        if(pte & PTE_V ){
+            // this PTE points to a lower-level page table.
+            uint64 child = PTE2PA(pte);//获取当前虚拟地址map的物理地址
+            if(step==1) printf(" ..%d: pte %p pa %p\n",i,pte,child);
+            if(step==2) printf(" .. ..%d: pte %p pa %p\n",i,pte,child);
+            if(step==3) printf(" .. .. ..%d: pte %p pa %p\n",i,pte,child);
+            if((pte & (PTE_R|PTE_W|PTE_X)) == 0) freeprint((pagetable_t)child,step+1);//如果是非叶子页表项则进入下一个页表
+        }
+    }
+}
+
+
+void
+vmprint(pagetable_t pagetable){
+    printf("page table %p\n",pagetable);
+    freeprint(pagetable,1);
+}
+
