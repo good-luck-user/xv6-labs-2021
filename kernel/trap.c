@@ -34,6 +34,11 @@ trapinithart(void)
 // called from trampoline.S
 //
 void
+store(){
+    struct proc *p=myproc();
+    *(p->ticks_trapframe)=*(p->trapframe);//这里直接结构体全部赋值给ticks_trapframe
+}
+void
 usertrap(void)
 {
   int which_dev = 0;
@@ -77,8 +82,15 @@ usertrap(void)
     exit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
-    yield();
+  if(which_dev == 2){
+      p->pass_ticks+=1;
+      if(p->ticks!=0&&p->pass_ticks==p->ticks) {
+          store();//单独设置函数方便调试来调试的
+          p->trapframe->epc = p->handler;//然后epc寄存器指给定的警报函数
+
+      }
+      yield();
+  }
 
   usertrapret();
 }
@@ -125,7 +137,7 @@ usertrapret(void)
   // switches to the user page table, restores user registers,
   // and switches to user mode with sret.
   uint64 fn = TRAMPOLINE + (userret - trampoline);
-  ((void (*)(uint64,uint64))fn)(TRAPFRAME, satp);
+  ((void (*)(uint64,uint64))fn)(TRAPFRAME, satp);//执行userret函数
 }
 
 // interrupts and exceptions from kernel code go here via kernelvec,

@@ -92,9 +92,14 @@ struct proc {
   int killed;                  // If non-zero, have been killed
   int xstate;                  // Exit status to be returned to parent's wait
   int pid;                     // Process ID
-
+  int ticks;                    //储存警告间隔
+  int pass_ticks;                //记录已经经过了多少ticks
+  struct trapframe *ticks_trapframe; //设置一个指针保存寄存器的值
+  uint64 handler;            //定义一个void的函数指针
+    int in_tick;
   // wait_lock must be held when using this:
   struct proc *parent;         // Parent process
+
 
   // these are private to the process, so p->lock need not be held.
   uint64 kstack;               // Virtual address of kernel stack

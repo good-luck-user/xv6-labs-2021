@@ -1,5 +1,5 @@
 //
-// formatted console output -- printf, panic.
+// formatted console output -- printf, pannicic.
 //
 
 #include <stdarg.h>
@@ -117,6 +117,7 @@ printf(char *fmt, ...)
 void
 panic(char *s)
 {
+    backtrace();
   pr.locking = 0;
   printf("panic: ");
   printf(s);
@@ -131,4 +132,19 @@ printfinit(void)
 {
   initlock(&pr.lock, "pr");
   pr.locking = 1;
+}
+
+void backtrace() {
+    uint64 fp=r_fp();  //获取s0的指针，即当前的frame pointer
+    uint64 addr;
+    // 遍历栈帧直到栈底
+    printf("backtace:\n");
+    while(1){
+        addr=fp-8;  // fp指针下移8赋值给当前return address（注意这是一个指针的值）
+        printf("%p\n", *(uint64*)addr);//打印出返回地址指针所指向的地址
+        fp = *(uint64*)(fp-16);  // 将fp指向上一个函数的fp
+        if (fp<PGROUNDDOWN(fp)||fp>=PGROUNDUP(fp)){
+            break;  // 防止越界
+        }
+    }
 }

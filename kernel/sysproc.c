@@ -57,7 +57,7 @@ sys_sleep(void)
 {
   int n;
   uint ticks0;
-
+  backtrace();
   if(argint(0, &n) < 0)
     return -1;
   acquire(&tickslock);
@@ -95,3 +95,24 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+
+uint64
+sys_sigreturn(void){
+    struct proc *p=myproc();
+    *(p->trapframe)=*(p->ticks_trapframe);
+    p->pass_ticks=0;
+
+    return 0;
+};
+
+uint64
+sys_sigalarm(void){
+    int n;
+    uint64 add;
+    argint(0, &n);
+    argaddr(1, &add);
+    myproc()->ticks=n;
+    myproc()->handler=(uint64)add;//将64位的地址直接赋值到进程空间里
+    return 0;
+};
