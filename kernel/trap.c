@@ -16,6 +16,50 @@ void kernelvec();
 
 extern int devintr();
 
+int
+is_cow(pagetable_t pagetable,uint64 va){
+    if(va>=MAXVA) return -1;
+    pte_t *pte;
+    va= PGROUNDDOWN(va);
+    if((pte = walk(pagetable, va, 0)) == 0)
+    {
+        printf("is_cow: pte should exist");
+        return -1;
+    }
+    if(pte == 0 || (*pte & PTE_U) == 0 || (*pte & PTE_V) == 0){
+        printf("is_cow: invalid pte\n");
+        return -1;
+    }
+    if(*pte&PTE_RSW) return 0;
+    return -1;
+}
+uint64
+cow(pagetable_t pagetable,uint64 va){
+    pte_t *pte;
+    if(va>=MAXVA) return -1;
+    if((pte = walk(pagetable, va, 0)) == 0)
+        panic("cow: pte should exist");
+    uint64 pa=PTE2PA(*pte);
+    va= PGROUNDDOWN(va);
+    uint flags = PTE_FLAGS(*pte);
+    //新开辟一个内存区域
+    char *mem;
+    if((mem = kalloc()) == 0)
+      return -1;
+    memmove(mem, (char*)pa, PGSIZE);
+    //解除映射
+    uvmunmap(pagetable,va,1,1);
+    //重新映射
+    flags|=PTE_W;//加上写权限
+    flags&=~PTE_RSW;//取消cow标记
+    if(mappages(pagetable, va, PGSIZE, (uint64)mem, flags) != 0){
+        printf("mappages:false");
+        return -1;
+    }
+    return 0;
+}
+
+
 void
 trapinit(void)
 {
@@ -65,9 +109,25 @@ usertrap(void)
     intr_on();
 
     syscall();
-  } else if((which_dev = devintr()) != 0){
-    // ok
-  } else {
+  }
+
+  else if(r_scause() == 15){//如果是缺页
+      if(is_cow(p->pagetable, r_stval())==0){//如果是则执行cow缺页操作
+          if(cow(p->pagetable, r_stval())!=0){
+              printf("cow:false");
+              p->killed = 1;
+          }
+      }
+      else{
+          printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
+          printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
+          p->killed = 1;
+      }
+  }
+  else if((which_dev = devintr()) != 0){
+      // ok
+  }
+  else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
     p->killed = 1;
