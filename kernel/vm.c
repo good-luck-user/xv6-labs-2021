@@ -359,7 +359,6 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
         }
     }
 
-
     pa0 = walkaddr(pagetable, va0);
     if (pa0 == 0)
         return -1;
