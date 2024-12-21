@@ -11,10 +11,7 @@
 
 int cacula[PHYSTOP/PGSIZE];
 
-void
-incphy(uint64 pa){
-    cacula[pa/PGSIZE]++;
-}
+
 
 void freerange(void *pa_start, void *pa_end);
 
@@ -29,6 +26,13 @@ struct {
   struct spinlock lock;
   struct run *freelist;
 } kmem;
+
+void
+incphy(uint64 pa){
+    acquire(&kmem.lock);
+    cacula[pa/PGSIZE]++;
+    release(&kmem.lock);
+}
 
 void
 kinit()
