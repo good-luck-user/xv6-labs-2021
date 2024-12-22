@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <assert.h>
 #include <pthread.h>
-
 static int nthread = 1;
 static int round = 0;
 
@@ -30,7 +29,24 @@ barrier()
   // Block until all threads have called barrier() and
   // then increment bstate.round.
   //
+  pthread_mutex_lock(&bstate.barrier_mutex);
+  bstate.nthread++;
   
+  // 如果全部线程都到了cond，唤醒睡在cond的所有线程
+  if(bstate.nthread==nthread){
+    bstate.nthread=0;
+    bstate.round++;
+    pthread_cond_broadcast(&bstate.barrier_cond);
+  }
+
+  else{
+    /*
+    这里一定要写在else中，要不然当前轮次的最后一个线程会睡眠
+    导致后一轮的线程会少1，永远无法被唤醒从而引起死锁。
+    */ 
+    pthread_cond_wait(&bstate.barrier_cond, &bstate.barrier_mutex);
+  }
+  pthread_mutex_unlock(&bstate.barrier_mutex);
 }
 
 static void *
@@ -53,6 +69,7 @@ thread(void *xa)
 int
 main(int argc, char *argv[])
 {
+  
   pthread_t *tha;
   void *value;
   long i;
@@ -65,7 +82,6 @@ main(int argc, char *argv[])
   nthread = atoi(argv[1]);
   tha = malloc(sizeof(pthread_t) * nthread);
   srandom(0);
-
   barrier_init();
 
   for(i = 0; i < nthread; i++) {

@@ -10,10 +10,28 @@
 #define STACK_SIZE  8192
 #define MAX_THREAD  4
 
+struct context {
+  uint64 ra;
+  uint64 sp;
 
+  // callee-saved
+  uint64 s0;
+  uint64 s1;
+  uint64 s2;
+  uint64 s3;
+  uint64 s4;
+  uint64 s5;
+  uint64 s6;
+  uint64 s7;
+  uint64 s8;
+  uint64 s9;
+  uint64 s10;
+  uint64 s11;
+};
 struct thread {
   char       stack[STACK_SIZE]; /* the thread's stack */
   int        state;             /* FREE, RUNNING, RUNNABLE */
+  struct context thread_context;//设置线程保存的数据
 };
 struct thread all_thread[MAX_THREAD];
 struct thread *current_thread;
@@ -39,7 +57,7 @@ thread_schedule(void)
   /* Find another runnable thread. */
   next_thread = 0;
   t = current_thread + 1;
-  for(int i = 0; i < MAX_THREAD; i++){
+  for(int i = 0; i < MAX_THREAD; i++){//搜索线程池
     if(t >= all_thread + MAX_THREAD)
       t = all_thread;
     if(t->state == RUNNABLE) {
@@ -58,10 +76,14 @@ thread_schedule(void)
     next_thread->state = RUNNING;
     t = current_thread;
     current_thread = next_thread;
+
+    
     /* YOUR CODE HERE
      * Invoke thread_switch to switch from t to next_thread:
      * thread_switch(??, ??);
      */
+    //线程调度
+    thread_switch((uint64)&t->thread_context,(uint64)&current_thread->thread_context);
   } else
     next_thread = 0;
 }
@@ -76,6 +98,10 @@ thread_create(void (*func)())
   }
   t->state = RUNNABLE;
   // YOUR CODE HERE
+  //将让fun函数在线程t中进行
+  t->thread_context.sp = (uint64)((char *)&t->stack + STACK_SIZE);//指向栈顶
+  t->thread_context.ra = (uint64)(func);//指向调用函数
+
 }
 
 void 
@@ -140,7 +166,7 @@ thread_c(void)
   for (i = 0; i < 100; i++) {
     printf("thread_c %d\n", i);
     c_n += 1;
-    thread_yield();
+    thread_yield();//退出线程
   }
   printf("thread_c: exit after %d\n", c_n);
 
@@ -154,7 +180,7 @@ main(int argc, char *argv[])
   a_started = b_started = c_started = 0;
   a_n = b_n = c_n = 0;
   thread_init();
-  thread_create(thread_a);
+  thread_create(thread_a);//创建三个线程
   thread_create(thread_b);
   thread_create(thread_c);
   thread_schedule();
